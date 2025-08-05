@@ -27,7 +27,9 @@ import {
   Close,
   Code,
 } from "@mui/icons-material";
-import Theme from "./Theme"; // Asumido que existe
+import { python } from "@codemirror/lang-python";
+import CodeMirror from "@uiw/react-codemirror";
+import Theme from "./Theme"; // Assumed to exist
 import SidebarContent from "./SidebarContent";
 import TopBar from "./TopBar";
 
@@ -53,9 +55,10 @@ export default function App() {
     return savedFiles ? JSON.parse(savedFiles)[0].name : "untitled.py";
   });
   const [isModified, setIsModified] = useState(false);
+  const [activeTabIndex, setActiveTabIndex] = useState(0); // Active tab index
   const fileInputRef = useRef(null);
 
-  // Cargar Pyodide al montar el componente
+  // Load Pyodide on component mount
   useEffect(() => {
     async function loadPyodideInstance() {
       const pyodideInstance = await window.loadPyodide();
@@ -65,20 +68,16 @@ export default function App() {
     loadPyodideInstance();
   }, []);
 
-  // Guardar en localStorage cuando allFiles cambie
+  // Save to localStorage when allFiles changes
   useEffect(() => {
     localStorage.setItem("allFiles", JSON.stringify(allFiles));
   }, [allFiles]);
 
-  // Atajos de teclado
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.ctrlKey || event.metaKey) {
         switch (event.key) {
-          case "s":
-            event.preventDefault();
-            handleSave();
-            break;
           case "n":
             event.preventDefault();
             handleNewFile();
@@ -86,6 +85,11 @@ export default function App() {
           case "o":
             event.preventDefault();
             handleOpenFile();
+            break;
+          case "s":
+            event.preventDefault();
+            if (event.shiftKey) handleSaveAs();
+            else handleSave();
             break;
           case "w":
             event.preventDefault();
@@ -109,17 +113,16 @@ export default function App() {
     { icon: <Extension />, label: "Extensions", key: "extensions" },
   ];
 
-  const handleCodeChange = (e) => {
-    const newCode = e.target.value;
-    setCode(newCode);
+  const handleCodeChange = (value) => {
+    setCode(value);
     setOpenFiles((prev) =>
       prev.map((file) =>
-        file.name === activeFile ? { ...file, content: newCode } : file
+        file.name === activeFile ? { ...file, content: value } : file
       )
     );
     setAllFiles((prev) =>
       prev.map((file) =>
-        file.name === activeFile ? { ...file, content: newCode } : file
+        file.name === activeFile ? { ...file, content: value } : file
       )
     );
     setIsModified(true);
@@ -127,13 +130,13 @@ export default function App() {
 
   const handleRunCode = async () => {
     if (!pyodide) {
-      setOutput("Pyodide no está cargado aún. Por favor espera.");
+      setOutput("Pyodide is not loaded yet. Please wait.");
       setTerminalOpen(true);
       return;
     }
 
     setTerminalOpen(true);
-    setOutput("Ejecutando...\n");
+    setOutput("Running...\n");
 
     try {
       pyodide.runPython(`
@@ -143,7 +146,7 @@ export default function App() {
       `);
       await pyodide.runPythonAsync(code);
       const result = pyodide.runPython("sys.stdout.getvalue()");
-      setOutput(result || "No hay salida.");
+      setOutput(result || "No output.");
     } catch (error) {
       setOutput(`Error: ${error.message}`);
     }
@@ -158,6 +161,7 @@ export default function App() {
     setCode("");
     setTerminalOpen(false);
     setIsModified(false);
+    setActiveTabIndex(openFiles.length); // Update to new index
   };
 
   const handleOpenFile = () => {
@@ -184,10 +188,11 @@ export default function App() {
         });
         setActiveFile(file.name);
         setCode(event.target.result);
+        setActiveTabIndex(openFiles.findIndex((f) => f.name === file.name)); // Update to the opened file index
       };
       reader.readAsText(file);
     } else {
-      alert("Por favor selecciona un archivo .py");
+      alert("Please select a .py file");
     }
     e.target.value = null;
   };
@@ -199,11 +204,11 @@ export default function App() {
       const file = openFiles.find((f) => f.name === activeFile);
       if (file) downloadFile(file.content, file.name);
     }
-    setIsModified(false); // Reiniciar el indicador al guardar
+    setIsModified(false); // Reset modified indicator on save
   };
 
   const handleSaveAs = () => {
-    const newFileName = prompt("Ingresa el nombre del archivo:", activeFile) || activeFile;
+    const newFileName = prompt("Enter the file name:", activeFile) || activeFile;
     if (newFileName) {
       const validFileName = newFileName.endsWith(".py") ? newFileName : `${newFileName}.py`;
       const fileContent = openFiles.find((f) => f.name === activeFile)?.content || "";
@@ -222,7 +227,8 @@ export default function App() {
       );
       setActiveFile(validFileName);
       downloadFile(fileContent, validFileName);
-      setIsModified(false); // Reiniciar el indicador al guardar
+      setIsModified(false); // Reset modified indicator on save
+      setActiveTabIndex(openFiles.findIndex((f) => f.name === validFileName)); // Update to the new name index
     }
   };
 
@@ -237,15 +243,19 @@ export default function App() {
   };
 
   const handleCloseFile = () => {
+    const currentIndex = openFiles.findIndex((file) => file.name === activeFile);
     setOpenFiles((prev) => prev.filter((file) => file.name !== activeFile));
     const remainingFiles = openFiles.filter((file) => file.name !== activeFile);
     if (remainingFiles.length > 0) {
-      const newActiveFile = remainingFiles[remainingFiles.length - 1].name;
+      const newActiveIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+      const newActiveFile = remainingFiles[newActiveIndex].name;
       setActiveFile(newActiveFile);
       setCode(allFiles.find((file) => file.name === newActiveFile)?.content || "");
+      setActiveTabIndex(newActiveIndex);
     } else {
       setActiveFile(null);
       setCode("");
+      setActiveTabIndex(-1);
     }
     setIsModified(false);
   };
@@ -259,11 +269,56 @@ export default function App() {
     }
     setActiveFile(fileName);
     setCode(allFiles.find((file) => file.name === fileName)?.content || "");
+    setActiveTabIndex(openFiles.findIndex((f) => f.name === fileName)); // Update to the selected file index
     setIsModified(false);
   };
 
-  // Generar números de línea basados en el contenido
-  const lineNumbers = code.split("\n").map((_, index) => index + 1);
+  const handleDownloadFile = (fileName) => {
+    const file = allFiles.find((f) => f.name === fileName);
+    if (file) downloadFile(file.content, file.name);
+  };
+
+  const handleRenameFile = (fileName) => {
+    const newName = prompt("Enter the new file name:", fileName) || fileName;
+    if (newName && newName !== fileName) {
+      const validNewName = newName.endsWith(".py") ? newName : `${newName}.py`;
+      const file = allFiles.find((f) => f.name === fileName);
+      if (file && !allFiles.some((f) => f.name === validNewName)) {
+        setAllFiles((prev) =>
+          prev.map((f) => (f.name === fileName ? { ...f, name: validNewName } : f))
+        );
+        setOpenFiles((prev) =>
+          prev.map((f) => (f.name === fileName ? { ...f, name: validNewName } : f))
+        );
+        if (activeFile === fileName) {
+          setActiveFile(validNewName);
+          setActiveTabIndex(openFiles.findIndex((f) => f.name === validNewName));
+        }
+      } else {
+        alert("The name already exists or is invalid.");
+      }
+    }
+  };
+
+  const handleDeleteFile = (fileName) => {
+    if (confirm(`Are you sure you want to delete ${fileName}?`)) {
+      setAllFiles((prev) => prev.filter((f) => f.name !== fileName));
+      setOpenFiles((prev) => prev.filter((f) => f.name !== fileName));
+      if (activeFile === fileName) {
+        const remainingFiles = openFiles.filter((f) => f.name !== fileName);
+        if (remainingFiles.length > 0) {
+          const newActiveFile = remainingFiles[0].name;
+          setActiveFile(newActiveFile);
+          setCode(allFiles.find((f) => f.name === newActiveFile)?.content || "");
+          setActiveTabIndex(0);
+        } else {
+          setActiveFile(null);
+          setCode("");
+          setActiveTabIndex(-1);
+        }
+      }
+    }
+  };
 
   return (
     <ThemeProvider theme={Theme}>
@@ -338,6 +393,8 @@ export default function App() {
                   width: 280,
                   backgroundColor: "#252526",
                   borderRight: "1px solid #2d2d30",
+                  transition: "width 0.3s ease",
+                  ...(sidebarOpen ? {} : { width: 0, overflow: "hidden" }),
                 },
               }}
             >
@@ -346,16 +403,29 @@ export default function App() {
                 allFiles={allFiles}
                 onFileSelect={handleFileSelect}
                 activeFile={activeFile}
+                handleNewFile={handleNewFile}
+                handleDownloadFile={handleDownloadFile}
+                handleRenameFile={handleRenameFile}
+                handleDeleteFile={handleDeleteFile}
               />
             </Drawer>
           </Box>
 
-          <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <Box
+            sx={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              width: sidebarOpen ? "calc(100% - 328px)" : "calc(100% - 48px)", // Adjust based on sidebar width (280px) + icon bar (48px)
+              transition: "width 0.3s ease",
+            }}
+          >
             {openFiles.length > 0 ? (
               <>
                 <Paper square elevation={0} sx={{ backgroundColor: "#2d2d30", display: "flex", alignItems: "center" }}>
-                  <Tabs value={0} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 35, flexGrow: 1 }}>
-                    {openFiles.map((file) => (
+                  <Tabs value={activeTabIndex} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 35, flexGrow: 1 }}>
+                    {openFiles.map((file, index) => (
                       <Tab
                         key={file.name}
                         label={
@@ -387,7 +457,12 @@ export default function App() {
                           </Box>
                         }
                         sx={{ minHeight: 35, textTransform: "none" }}
-                        onClick={() => handleFileSelect(file.name)}
+                        onClick={() => {
+                          setActiveFile(file.name);
+                          setCode(file.content);
+                          setActiveTabIndex(index);
+                          setIsModified(false);
+                        }}
                       />
                     ))}
                   </Tabs>
@@ -396,7 +471,7 @@ export default function App() {
                     color="inherit"
                     onClick={handleRunCode}
                     sx={{ mr: 1 }}
-                    title="Ejecutar Código"
+                    title="Run Code"
                   >
                     <PlayArrow sx={{ fontSize: 18 }} />
                   </IconButton>
@@ -409,48 +484,18 @@ export default function App() {
                       backgroundColor: "#1e1e1e",
                       overflow: "auto",
                       position: "relative",
-                      display: "flex",
                     }}
                   >
-                    <Box
-                      sx={{
-                        width: 50,
-                        backgroundColor: "#252526",
-                        color: "#858585",
-                        fontFamily: '"Monaco", "Cascadia Code", "Roboto Mono", monospace',
-                        fontSize: "14px",
-                        lineHeight: "1.5",
-                        padding: "16px 0",
-                        textAlign: "right",
-                        userSelect: "none",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {lineNumbers.map((number) => (
-                        <Box key={number} sx={{ padding: "0 10px", height: "21px" }}>
-                          {number}
-                        </Box>
-                      ))}
-                    </Box>
-                    <Box
-                      component="textarea"
+                    <CodeMirror
                       value={code}
+                      height="100%"
+                      width="100%"
+                      extensions={[python()]}
                       onChange={handleCodeChange}
-                      sx={{
-                        flex: 1,
-                        backgroundColor: "#1e1e1e",
-                        color: "#d4d4d4",
-                        fontFamily: '"Monaco", "Cascadia Code", "Roboto Mono", monospace',
-                        fontSize: "14px",
-                        lineHeight: "1.5",
-                        padding: "16px",
-                        border: "none",
-                        outline: "none",
-                        resize: "none",
-                        overflow: "auto",
-                        "&::-webkit-scrollbar": { width: "8px" },
-                        "&::-webkit-scrollbar-thumb": { backgroundColor: "#555" },
-                      }}
+                      theme="dark"
+                      style={{ fontFamily: '"Monaco", "Cascadia Code", "Roboto Mono", monospace', fontSize: "14px" }}
+                      className="custom-codemirror"
+                      basicSetup={{ lineNumbers: true, highlightActiveLine: true }} // Ensure dynamic highlighting
                     />
                   </Box>
 
@@ -514,7 +559,7 @@ export default function App() {
                 }}
               >
                 <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                  No hay archivos abiertos
+                  No files open
                 </Typography>
               </Box>
             )}

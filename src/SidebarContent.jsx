@@ -9,10 +9,39 @@ import {
   ListItemText,
   TextField,
   InputAdornment,
+  Menu,
+  MenuItem,
 } from "@mui/material";
 import { Add, Code, Search, Extension } from "@mui/icons-material";
 
-export default function SidebarContent({ activeTab, allFiles, onFileSelect, activeFile }) {
+export default function SidebarContent({
+  activeTab,
+  allFiles,
+  onFileSelect,
+  activeFile,
+  handleNewFile,
+  handleDownloadFile,
+  handleRenameFile,
+  handleDeleteFile,
+}) {
+  const [contextMenu, setContextMenu] = React.useState(null);
+  const [selectedFile, setSelectedFile] = React.useState(null);
+
+  const handleContextMenu = (event, fileName) => {
+    event.preventDefault();
+    setSelectedFile(fileName);
+    setContextMenu(
+      contextMenu === null
+        ? { mouseX: event.clientX - 2, mouseY: event.clientY - 4 }
+        : null
+    );
+  };
+
+  const handleCloseContextMenu = () => {
+    setContextMenu(null);
+    setSelectedFile(null);
+  };
+
   switch (activeTab) {
     case 0: // Explorer
       return (
@@ -21,13 +50,17 @@ export default function SidebarContent({ activeTab, allFiles, onFileSelect, acti
             <Typography variant="caption" sx={{ color: "text.secondary", textTransform: "uppercase" }}>
               Explorer
             </Typography>
-            <IconButton size="small" sx={{ color: "text.secondary" }}>
+            <IconButton size="small" sx={{ color: "text.secondary" }} onClick={handleNewFile}>
               <Add fontSize="small" />
             </IconButton>
           </Box>
           <List dense>
             {allFiles.map((file) => (
-              <ListItem key={file.name} dense>
+              <ListItem
+                key={file.name}
+                dense
+                onContextMenu={(e) => handleContextMenu(e, file.name)}
+              >
                 <ListItemButton
                   onClick={() => onFileSelect(file.name)}
                   sx={{
@@ -49,6 +82,56 @@ export default function SidebarContent({ activeTab, allFiles, onFileSelect, acti
               </ListItem>
             ))}
           </List>
+          <Menu
+            open={contextMenu !== null}
+            onClose={handleCloseContextMenu}
+            anchorReference="anchorPosition"
+            anchorPosition={
+              contextMenu !== null
+                ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+                : undefined
+            }
+            PaperProps={{
+              sx: { backgroundColor: "#2d2d30", border: "1px solid #454545" },
+            }}
+          >
+            <MenuItem
+              onClick={() => {
+                if (selectedFile) onFileSelect(selectedFile);
+                handleCloseContextMenu();
+              }}
+              sx={{ fontSize: "0.75rem", color: "#d4d4d4" }}
+            >
+              Open
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                if (selectedFile) handleDownloadFile(selectedFile);
+                handleCloseContextMenu();
+              }}
+              sx={{ fontSize: "0.75rem", color: "#d4d4d4" }}
+            >
+              Download
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                if (selectedFile) handleRenameFile(selectedFile);
+                handleCloseContextMenu();
+              }}
+              sx={{ fontSize: "0.75rem", color: "#d4d4d4" }}
+            >
+              Rename
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                if (selectedFile) handleDeleteFile(selectedFile);
+                handleCloseContextMenu();
+              }}
+              sx={{ fontSize: "0.75rem", color: "#d4d4d4" }}
+            >
+              Delete
+            </MenuItem>
+          </Menu>
         </Box>
       );
     case 1: // Search
@@ -64,7 +147,7 @@ export default function SidebarContent({ activeTab, allFiles, onFileSelect, acti
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <Search sx={{ fontSize: 16 }} />
+                  <Search sx={{ fontSize: 6 }} />
                 </InputAdornment>
               ),
             }}
@@ -114,6 +197,15 @@ export default function SidebarContent({ activeTab, allFiles, onFileSelect, acti
               </ListItemIcon>
               <ListItemText
                 primary="Python"
+                primaryTypographyProps={{ variant: "body2" }}
+              />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon sx={{ minWidth: 32 }}>
+                <Extension sx={{ color: "#9c27b0", fontSize: 16 }} />
+              </ListItemIcon>
+              <ListItemText
+                primary="Pylint"
                 primaryTypographyProps={{ variant: "body2" }}
               />
             </ListItem>
