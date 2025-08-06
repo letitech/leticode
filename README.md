@@ -19,7 +19,7 @@ LetiCode is a web-based application and does not require installation. Simply cl
 1. Clone the repository:
    ```bash
    git clone https://github.com/letitech/leticode.git
-   cd LetiCode
+   cd leticode
    ```
 
 2. Install dependencies (if using a build tool like Vite or Create React App):
@@ -32,7 +32,7 @@ LetiCode is a web-based application and does not require installation. Simply cl
    npm run dev
    ```
 
-4. Open your browser and navigate to `http://localhost:3000` (or the port specified by your server).
+4. Open your browser and navigate to `http://localhost:5173` (or the port specified by your server).
 
 ## Usage
 
@@ -60,7 +60,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact
 
-For support or inquiries, reach out to the Letitech team at [support@letitech.com](mailto:support@letitech.com).
+For support or inquiries, reach out to the Letitech team at [letitech.sl@gmail.com](mailto:letitech.sl@gmail.com).
 
 ---
 
