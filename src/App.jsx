@@ -29,7 +29,7 @@ import {
 } from "@mui/icons-material";
 import { python } from "@codemirror/lang-python";
 import CodeMirror from "@uiw/react-codemirror";
-import Theme from "./Theme"; // Assumed to exist
+import Theme from "./Theme";
 import SidebarContent from "./SidebarContent";
 import TopBar from "./TopBar";
 
