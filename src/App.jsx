@@ -102,6 +102,7 @@ export default function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line
   }, [openFiles, activeFile, allFiles]);
 
   const sidebarItems = [
