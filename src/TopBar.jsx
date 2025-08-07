@@ -19,13 +19,13 @@ const menuItems = [
       { label: "Save As (Ctrl+Shift+S)", action: "saveAs" },
     ],
   },
-  { label: "Edit", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
-  { label: "Selection", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
-  { label: "View", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
-  { label: "Go", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
-  { label: "Run", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
-  { label: "Terminal", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
-  { label: "Help", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
+  // { label: "Edit", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
+  // { label: "Selection", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
+  // { label: "View", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
+  // { label: "Go", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
+  // { label: "Run", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
+  // { label: "Terminal", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
+  // { label: "Help", options: [{ label: "Option 1" }, { label: "Option 2" }, { label: "Option 3" }] },
 ];
 
 export default function TopBar({
