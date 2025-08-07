@@ -301,6 +301,7 @@ export default function App() {
   };
 
   const handleDeleteFile = (fileName) => {
+    // eslint-disable-next-line no-restricted-globals
     if (confirm(`Are you sure you want to delete ${fileName}?`)) {
       setAllFiles((prev) => prev.filter((f) => f.name !== fileName));
       setOpenFiles((prev) => prev.filter((f) => f.name !== fileName));
