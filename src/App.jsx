@@ -49,18 +49,9 @@ export default function App() {
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [output, setOutput] = useState("");
   const [pyodide, setPyodide] = useState(null);
-  const [openFiles, setOpenFiles] = useState(() => {
-    const savedFiles = localStorage.getItem("allFiles");
-    return savedFiles ? JSON.parse(savedFiles) : [{ name: "untitled.py", content: "" }];
-  });
-  const [allFiles, setAllFiles] = useState(() => {
-    const savedFiles = localStorage.getItem("allFiles");
-    return savedFiles ? JSON.parse(savedFiles) : [{ name: "untitled.py", content: "" }];
-  });
-  const [activeFile, setActiveFile] = useState(() => {
-    const savedFiles = localStorage.getItem("allFiles");
-    return savedFiles ? JSON.parse(savedFiles)[0].name : "untitled.py";
-  });
+  const [openFiles, setOpenFiles] = useState([]);
+  const [allFiles, setAllFiles] = useState([]);
+  const [activeFile, setActiveFile] = useState(null);
   const [isModified, setIsModified] = useState(false);
   const [activeTabIndex, setActiveTabIndex] = useState(0); // Active tab index
   const fileInputRef = useRef(null);
@@ -70,13 +61,44 @@ export default function App() {
   const [inputPrompt, setInputPrompt] = useState(""); // Store the input prompt from Python
   const [isWaitingForInput, setIsWaitingForInput] = useState(false); // Track if waiting for input
 
+  // Load from localStorage on mount
+  useEffect(() => {
+    const savedFiles = localStorage.getItem("allFiles");
+    if (savedFiles) {
+      try {
+        const parsedFiles = JSON.parse(savedFiles);
+        if (Array.isArray(parsedFiles) && parsedFiles.length > 0) {
+          setAllFiles(parsedFiles);
+          setOpenFiles(parsedFiles.filter((f) => f.name === parsedFiles[0].name)); // Initialize with first file open
+          setActiveFile(parsedFiles[0].name);
+          setCode(parsedFiles[0].content || "");
+          setActiveTabIndex(0);
+          return;
+        }
+      } catch (e) {
+        console.error("Failed to parse localStorage data:", e);
+      }
+    }
+    // Fallback to default state if no valid data
+    const defaultFile = { name: "untitled.py", content: "" };
+    setAllFiles([defaultFile]);
+    setOpenFiles([defaultFile]);
+    setActiveFile("untitled.py");
+    setCode("");
+  }, []);
+
+  // Save to localStorage whenever allFiles changes
+  useEffect(() => {
+    localStorage.setItem("allFiles", JSON.stringify(allFiles));
+  }, [allFiles]);
+
   // Load Pyodide on component mount
   useEffect(() => {
     async function loadPyodideInstance() {
       const pyodideInstance = await window.loadPyodide();
       await pyodideInstance.loadPackage("micropip");
 
-      // Override Python's input function
+      // Override Python's input function with sequential handling
       pyodideInstance.runPython(`
         import js
         def custom_input(prompt):
@@ -89,11 +111,6 @@ export default function App() {
     }
     loadPyodideInstance();
   }, []);
-
-  // Save to localStorage when allFiles changes
-  useEffect(() => {
-    localStorage.setItem("allFiles", JSON.stringify(allFiles));
-  }, [allFiles]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -169,25 +186,32 @@ export default function App() {
         sys.stdout = StringIO()
       `);
 
-      // Expose functions to Pyodide
+      // Expose functions to Pyodide with sequential input handling
+      const inputPromises = [];
       window.outputPrompt = (prompt) => {
         setInputPrompt(prompt);
         setIsWaitingForInput(true);
+        return new Promise((resolve) => {
+          inputPromises.push(resolve);
+        });
       };
       window.getInput = () => {
         return new Promise((resolve) => {
           const resolveInput = (value) => {
             setIsWaitingForInput(false);
             setInputValue("");
+            const nextResolve = inputPromises.shift();
+            if (nextResolve) nextResolve(value);
             resolve(value);
           };
-          window.resolveInput = resolveInput; // Store resolver for later use
+          window.resolveInput = resolveInput;
         });
       };
 
       await pyodide.runPythonAsync(code);
       const result = pyodide.runPython("sys.stdout.getvalue()");
-      setOutput((prev) => prev + (result || "No output.") + "\n");
+      // Preserve string formatting for print with text and variables
+      setOutput((prev) => prev + result.replace(/\n/g, "\n") + "\n");
     } catch (error) {
       setOutput((prev) => prev + `Error: ${error.message}\n`);
     }
@@ -198,7 +222,7 @@ export default function App() {
       e.preventDefault();
       if (window.resolveInput) {
         window.resolveInput(inputValue);
-        setOutput((prev) => prev + `${inputPrompt}${inputValue}\n`);
+        setOutput((prev) => prev + `${inputPrompt}\n${inputValue}\n`); // Show prompt and input on separate lines
       }
     }
   };
@@ -229,13 +253,17 @@ export default function App() {
           if (!prev.some((f) => f.name === file.name)) {
             return [...prev, newFile];
           }
-          return prev;
+          return prev.map((f) =>
+            f.name === file.name ? { ...f, content: event.target.result } : f
+          );
         });
         setOpenFiles((prev) => {
           if (!prev.some((f) => f.name === file.name)) {
             return [...prev, newFile];
           }
-          return prev;
+          return prev.map((f) =>
+            f.name === file.name ? { ...f, content: event.target.result } : f
+          );
         });
         setActiveFile(file.name);
         setCode(event.target.result);
