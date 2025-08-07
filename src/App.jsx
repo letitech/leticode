@@ -15,6 +15,13 @@ import {
   ThemeProvider,
   CssBaseline,
   IconButton,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Button,
+  TextField,
 } from "@mui/material";
 import {
   FolderOpen,
@@ -29,7 +36,7 @@ import {
 } from "@mui/icons-material";
 import { python } from "@codemirror/lang-python";
 import CodeMirror from "@uiw/react-codemirror";
-import Theme from "./Theme";
+import Theme from "./Theme"; // Assumed to exist
 import SidebarContent from "./SidebarContent";
 import TopBar from "./TopBar";
 
@@ -57,12 +64,27 @@ export default function App() {
   const [isModified, setIsModified] = useState(false);
   const [activeTabIndex, setActiveTabIndex] = useState(0); // Active tab index
   const fileInputRef = useRef(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false); // New state for dialog
+  const [fileToDelete, setFileToDelete] = useState(null); // Track file to delete
+  const [inputValue, setInputValue] = useState(""); // New state for terminal input
+  const [inputPrompt, setInputPrompt] = useState(""); // Store the input prompt from Python
+  const [isWaitingForInput, setIsWaitingForInput] = useState(false); // Track if waiting for input
 
   // Load Pyodide on component mount
   useEffect(() => {
     async function loadPyodideInstance() {
       const pyodideInstance = await window.loadPyodide();
       await pyodideInstance.loadPackage("micropip");
+
+      // Override Python's input function
+      pyodideInstance.runPython(`
+        import js
+        def custom_input(prompt):
+            js.outputPrompt(prompt)
+            return js.getInput()
+        __builtins__.input = custom_input
+      `);
+      window.pyodide = pyodideInstance; // Expose to global scope for JS interaction
       setPyodide(pyodideInstance);
     }
     loadPyodideInstance();
@@ -102,7 +124,6 @@ export default function App() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line
   }, [openFiles, activeFile, allFiles]);
 
   const sidebarItems = [
@@ -138,6 +159,7 @@ export default function App() {
 
     setTerminalOpen(true);
     setOutput("Running...\n");
+    setIsWaitingForInput(false); // Reset input state
 
     try {
       pyodide.runPython(`
@@ -145,11 +167,38 @@ export default function App() {
         from io import StringIO
         sys.stdout = StringIO()
       `);
+
+      // Expose functions to Pyodide
+      window.outputPrompt = (prompt) => {
+        setInputPrompt(prompt);
+        setIsWaitingForInput(true);
+      };
+      window.getInput = () => {
+        return new Promise((resolve) => {
+          const resolveInput = (value) => {
+            setIsWaitingForInput(false);
+            setInputValue("");
+            resolve(value);
+          };
+          window.resolveInput = resolveInput; // Store resolver for later use
+        });
+      };
+
       await pyodide.runPythonAsync(code);
       const result = pyodide.runPython("sys.stdout.getvalue()");
-      setOutput(result || "No output.");
+      setOutput((prev) => prev + (result || "No output.") + "\n");
     } catch (error) {
-      setOutput(`Error: ${error.message}`);
+      setOutput((prev) => prev + `Error: ${error.message}\n`);
+    }
+  };
+
+  const handleInputSubmit = (e) => {
+    if (e.key === "Enter" && isWaitingForInput) {
+      e.preventDefault();
+      if (window.resolveInput) {
+        window.resolveInput(inputValue);
+        setOutput((prev) => prev + `${inputPrompt}${inputValue}\n`);
+      }
     }
   };
 
@@ -302,12 +351,16 @@ export default function App() {
   };
 
   const handleDeleteFile = (fileName) => {
-    // eslint-disable-next-line no-restricted-globals
-    if (confirm(`Are you sure you want to delete ${fileName}?`)) {
-      setAllFiles((prev) => prev.filter((f) => f.name !== fileName));
-      setOpenFiles((prev) => prev.filter((f) => f.name !== fileName));
-      if (activeFile === fileName) {
-        const remainingFiles = openFiles.filter((f) => f.name !== fileName);
+    setFileToDelete(fileName);
+    setDeleteDialogOpen(true); // Open the dialog
+  };
+
+  const handleDeleteConfirm = () => {
+    if (fileToDelete) {
+      setAllFiles((prev) => prev.filter((f) => f.name !== fileToDelete));
+      setOpenFiles((prev) => prev.filter((f) => f.name !== fileToDelete));
+      if (activeFile === fileToDelete) {
+        const remainingFiles = openFiles.filter((f) => f.name !== fileToDelete);
         if (remainingFiles.length > 0) {
           const newActiveFile = remainingFiles[0].name;
           setActiveFile(newActiveFile);
@@ -320,6 +373,13 @@ export default function App() {
         }
       }
     }
+    setDeleteDialogOpen(false); // Close the dialog
+    setFileToDelete(null);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setFileToDelete(null);
   };
 
   return (
@@ -419,7 +479,7 @@ export default function App() {
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
-              width: sidebarOpen ? "calc(100% - 328px)" : "calc(100% - 48px)", // Adjust based on sidebar width (280px) + icon bar (48px)
+              width: sidebarOpen ? "calc(100% - 328px)" : "calc(100% - 48px)",
               transition: "width 0.3s ease",
             }}
           >
@@ -497,7 +557,7 @@ export default function App() {
                       theme="dark"
                       style={{ fontFamily: '"Monaco", "Cascadia Code", "Roboto Mono", monospace', fontSize: "14px" }}
                       className="custom-codemirror"
-                      basicSetup={{ lineNumbers: true, highlightActiveLine: true }} // Ensure dynamic highlighting
+                      basicSetup={{ lineNumbers: true, highlightActiveLine: true }}
                     />
                   </Box>
 
@@ -546,6 +606,31 @@ export default function App() {
                       >
                         {output}
                       </Box>
+                      {isWaitingForInput && (
+                        <Box sx={{ p: 2, borderTop: "1px solid #2d2d30" }}>
+                          <Typography variant="caption" sx={{ color: "#d4d4d4", mb: 1 }}>
+                            {inputPrompt}
+                          </Typography>
+                          <TextField
+                            fullWidth
+                            variant="outlined"
+                            size="small"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            onKeyPress={handleInputSubmit}
+                            autoFocus
+                            sx={{
+                              "& .MuiOutlinedInput-root": {
+                                backgroundColor: "#1e1e1e",
+                                color: "#d4d4d4",
+                              },
+                              "& .MuiOutlinedInput-input": {
+                                padding: "4px 8px",
+                              },
+                            }}
+                          />
+                        </Box>
+                      )}
                     </Paper>
                   )}
                 </Box>
@@ -597,6 +682,29 @@ export default function App() {
             </Paper>
           </Box>
         </Box>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={handleDeleteCancel}
+          aria-labelledby="delete-dialog-title"
+          aria-describedby="delete-dialog-description"
+        >
+          <DialogTitle id="delete-dialog-title">Confirm Deletion</DialogTitle>
+          <DialogContent>
+            <DialogContentText id="delete-dialog-description">
+              Are you sure you want to delete {fileToDelete}?
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDeleteCancel} color="primary">
+              Cancel
+            </Button>
+            <Button onClick={handleDeleteConfirm} color="error" autoFocus>
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </ThemeProvider>
   );
