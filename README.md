@@ -29,10 +29,10 @@ LetiCode is a web-based application and does not require installation. Simply cl
 
 3. Start a local server:
    ```bash
-   npm run dev
+   npm run start
    ```
 
-4. Open your browser and navigate to `http://localhost:5173` (or the port specified by your server).
+4. Open your browser and navigate to `http://localhost:3000` (or the port specified by your server).
 
 ## Usage
 
