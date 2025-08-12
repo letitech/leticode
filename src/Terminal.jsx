@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Paper, Box, Typography, IconButton, TextField } from "@mui/material";
 import { Close } from "@mui/icons-material";
 
@@ -11,6 +12,29 @@ export default function Terminal({
   setInputValue,
   handleInputSubmit,
 }) {
+  const terminalInputRef = useRef(null);
+  const terminalEndRef = useRef(null);
+
+  // Auto-scroll to bottom when output changes
+  useEffect(() => {
+    if (terminalEndRef.current) {
+      terminalEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [output]);
+
+  // Focus input when waiting for input
+  useEffect(() => {
+    if (isWaitingForInput && terminalInputRef.current) {
+      terminalInputRef.current.focus();
+    }
+  }, [isWaitingForInput]);
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      handleInputSubmit(e);
+    }
+  };
+
   return (
     terminalOpen && (
       <Paper
@@ -36,7 +60,11 @@ export default function Terminal({
           <Typography variant="caption" sx={{ color: "#d4d4d4" }}>
             Terminal
           </Typography>
-          <IconButton size="small" onClick={() => setTerminalOpen(false)} sx={{ color: "#d4d4d4" }}>
+          <IconButton
+            size="small"
+            onClick={() => setTerminalOpen(false)}
+            sx={{ color: "#d4d4d4" }}
+          >
             <Close sx={{ fontSize: 14 }} />
           </IconButton>
         </Box>
@@ -49,30 +77,51 @@ export default function Terminal({
             fontFamily: '"Monaco", "Cascadia Code", "Roboto Mono", monospace',
             fontSize: "13px",
             whiteSpace: "pre-wrap",
+            position: "relative",
           }}
         >
           {output}
+          {isWaitingForInput && (
+            <Box sx={{ display: "flex", alignItems: "center", mt: 1 }}>
+              {">>"} <TextField
+                ref={terminalInputRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={handleKeyPress}
+                variant="standard"
+                // placeholder="Ingresa tu respuesta..."
+                size="small"
+                fullWidth
+                InputProps={{
+                  disableUnderline: true,
+                  style: {
+                    color: "#d4d4d4",
+                    fontFamily: '"Monaco", "Cascadia Code", "Roboto Mono", monospace',
+                    fontSize: "13px",
+                    backgroundColor: "transparent",
+                  },
+                }}
+                sx={{
+                  "& .MuiInput-root": {
+                    color: "#d4d4d4",
+                    backgroundColor: "transparent",
+                  },
+                  "& .MuiInput-root:before": {
+                    borderBottom: "1px solid #d4d4d4",
+                  },
+                  "& .MuiInput-root:hover:before": {
+                    borderBottom: "1px solid #d4d4d4",
+                  },
+                  "& .MuiInput-root:after": {
+                    borderBottom: "2px solid #007ACC",
+                  },
+                }}
+                autoFocus
+              />
+            </Box>
+          )}
+          <div ref={terminalEndRef} />
         </Box>
-        {isWaitingForInput && (
-          <Box sx={{ p: 2, borderTop: "1px solid #2d2d30" }}>
-            <Typography variant="caption" sx={{ color: "#d4d4d4", mb: 1 }}>
-              {inputPrompt}
-            </Typography>
-            <TextField
-              fullWidth
-              variant="outlined"
-              size="small"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleInputSubmit}
-              autoFocus
-              sx={{
-                "& .MuiOutlinedInput-root": { backgroundColor: "#1e1e1e", color: "#d4d4d4" },
-                "& .MuiOutlinedInput-input": { padding: "4px 8px" },
-              }}
-            />
-          </Box>
-        )}
       </Paper>
     )
   );

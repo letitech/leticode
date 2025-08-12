@@ -50,8 +50,8 @@ export default function App() {
       pyodideInstance.runPython(`
         import js
         def custom_input(prompt):
-            js.outputPrompt(prompt)
-            return js.getInput()
+            future = js.outputPrompt(prompt)
+            return future
         __builtins__.input = custom_input
       `);
       window.pyodide = pyodideInstance;
@@ -121,29 +121,26 @@ export default function App() {
       setTerminalOpen(true);
       return;
     }
+
     setTerminalOpen(true);
     setOutput("Running...\n");
     setIsWaitingForInput(false);
+
     try {
       pyodide.runPython(`
         import sys
         from io import StringIO
         sys.stdout = StringIO()
       `);
+
       window.outputPrompt = (prompt) => {
-        setInputPrompt(prompt);
-        setIsWaitingForInput(true);
-      };
-      window.getInput = () => {
         return new Promise((resolve) => {
-          const resolveInput = (value) => {
-            setIsWaitingForInput(false);
-            setInputValue("");
-            resolve(value);
-          };
-          window.resolveInput = resolveInput;
+          setInputPrompt(prompt);
+          setIsWaitingForInput(true);
+          window.resolveInput = resolve; // Store the resolve function
         });
       };
+
       await pyodide.runPythonAsync(code);
       const result = pyodide.runPython("sys.stdout.getvalue()");
       setOutput((prev) => prev + (result || "No output.") + "\n");
@@ -153,12 +150,16 @@ export default function App() {
   };
 
   const handleInputSubmit = (e) => {
-    if (e.key === "Enter" && isWaitingForInput) {
+    if (isWaitingForInput && window.resolveInput) {
       e.preventDefault();
-      if (window.resolveInput) {
-        window.resolveInput(inputValue);
+      if (inputValue) {
         setOutput((prev) => prev + `${inputPrompt}${inputValue}\n`);
+        window.resolveInput(inputValue); // Resolve the promise with the input value
+      } else {
+        window.resolveInput(""); // Resolve with empty string if no input
       }
+      setInputValue("");
+      setIsWaitingForInput(false);
     }
   };
 
@@ -340,7 +341,7 @@ export default function App() {
         sidebarItems={sidebarItems}
         allFiles={allFiles}
         activeFile={activeFile}
-        setActiveFile={setActiveFile} // Added here
+        setActiveFile={setActiveFile}
         handleFileSelect={handleFileSelect}
         handleNewFile={handleNewFile}
         handleDownloadFile={handleDownloadFile}
