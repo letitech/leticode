@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Paper, Box, Typography, IconButton, TextField } from "@mui/material";
-import { Close } from "@mui/icons-material";
+import { Close, Delete } from "@mui/icons-material";
 
 export default function Terminal({
   terminalOpen,
@@ -11,6 +11,7 @@ export default function Terminal({
   isWaitingForInput,
   setInputValue,
   handleInputSubmit,
+  handleClearTerminal,
 }) {
   const terminalInputRef = useRef(null);
   const terminalEndRef = useRef(null);
@@ -60,13 +61,23 @@ export default function Terminal({
           <Typography variant="caption" sx={{ color: "#d4d4d4" }}>
             Terminal
           </Typography>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
           <IconButton
-            size="small"
-            onClick={() => setTerminalOpen(false)}
-            sx={{ color: "#d4d4d4" }}
-          >
-            <Close sx={{ fontSize: 14 }} />
-          </IconButton>
+              size="small"
+              onClick={handleClearTerminal}
+              sx={{ color: "#d4d4d4" }}
+              title="Clear Terminal"
+            >
+              <Delete sx={{ fontSize: 14 }} />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => setTerminalOpen(false)}
+              sx={{ color: "#d4d4d4", mr: 1 }}
+            >
+              <Close sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Box>
         </Box>
         <Box
           sx={{
@@ -89,7 +100,6 @@ export default function Terminal({
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 variant="standard"
-                // placeholder="Ingresa tu respuesta..."
                 size="small"
                 fullWidth
                 InputProps={{

@@ -17,7 +17,7 @@ export default function Layout({
   sidebarItems,
   allFiles,
   activeFile,
-  setActiveFile, // Added here
+  setActiveFile,
   handleFileSelect,
   handleNewFile,
   handleDownloadFile,
@@ -47,6 +47,8 @@ export default function Layout({
   fileToDelete,
   handleDeleteConfirm,
   handleDeleteCancel,
+  handleClearTerminal,
+  noFilesOpen,
 }) {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
@@ -88,7 +90,7 @@ export default function Layout({
         <EditorArea
           openFiles={openFiles}
           activeFile={activeFile}
-          setActiveFile={setActiveFile} // Added here
+          setActiveFile={setActiveFile}
           code={code}
           isModified={isModified}
           activeTabIndex={activeTabIndex}
@@ -105,6 +107,8 @@ export default function Layout({
           setInputValue={setInputValue}
           handleInputSubmit={handleInputSubmit}
           sidebarOpen={sidebarOpen}
+          handleClearTerminal={handleClearTerminal}
+          noFilesOpen={noFilesOpen}
         />
       </Box>
       <StatusBar />

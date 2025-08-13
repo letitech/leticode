@@ -1,8 +1,9 @@
-import { Box, Paper, Tabs, Tab, IconButton, Typography } from "@mui/material";
+import { Box, Paper, Tabs, Tab, IconButton } from "@mui/material";
 import { PlayArrow, Close, Code } from "@mui/icons-material";
 import { python } from "@codemirror/lang-python";
 import CodeMirror from "@uiw/react-codemirror";
 import Terminal from "./Terminal";
+import logoImage from "./assets/1.png";
 
 export default function EditorArea({
   openFiles,
@@ -24,6 +25,8 @@ export default function EditorArea({
   setInputValue,
   handleInputSubmit,
   sidebarOpen,
+  handleClearTerminal,
+  noFilesOpen,
 }) {
   return (
     <Box
@@ -73,7 +76,7 @@ export default function EditorArea({
                   }
                   sx={{ minHeight: 35, textTransform: "none" }}
                   onClick={() => {
-                    setActiveFile(file.name); // Use setActiveFile here
+                    setActiveFile(file.name);
                     setActiveTabIndex(index);
                   }}
                 />
@@ -115,6 +118,7 @@ export default function EditorArea({
               isWaitingForInput={isWaitingForInput}
               setInputValue={setInputValue}
               handleInputSubmit={handleInputSubmit}
+              handleClearTerminal={handleClearTerminal}
             />
           </Box>
         </>
@@ -128,9 +132,7 @@ export default function EditorArea({
             backgroundColor: "#1e1e1e",
           }}
         >
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            No files open
-          </Typography>
+          {noFilesOpen && <img src={logoImage} alt="LetiCode" style={{ width: "500px", height: "500px" }} />}
         </Box>
       )}
     </Box>

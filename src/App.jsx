@@ -32,7 +32,8 @@ export default function App() {
   });
   const [activeFile, setActiveFile] = useState(() => {
     const savedFiles = localStorage.getItem("allFiles");
-    return savedFiles ? JSON.parse(savedFiles)[0].name : "untitled.py";
+    const parsedFiles = savedFiles ? JSON.parse(savedFiles) : [{ name: "untitled.py", content: "" }];
+    return parsedFiles.length > 0 ? parsedFiles[0].name : "untitled.py";
   });
   const [isModified, setIsModified] = useState(false);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
@@ -326,6 +327,10 @@ export default function App() {
     setFileToDelete(null);
   };
 
+  const handleClearTerminal = () => {
+    setOutput("");
+  };
+
   return (
     <ThemeProvider theme={Theme}>
       <CssBaseline />
@@ -371,6 +376,8 @@ export default function App() {
         fileToDelete={fileToDelete}
         handleDeleteConfirm={handleDeleteConfirm}
         handleDeleteCancel={handleDeleteCancel}
+        handleClearTerminal={handleClearTerminal}
+        noFilesOpen={openFiles.length === 0 && !activeFile}
       />
     </ThemeProvider>
   );
