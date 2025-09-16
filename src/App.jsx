@@ -21,7 +21,6 @@ export default function App() {
   const [code, setCode] = useState("");
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [output, setOutput] = useState("");
-  const [pyodide, setPyodide] = useState(null);
   const [openFiles, setOpenFiles] = useState(() => {
     const savedFiles = localStorage.getItem("allFiles");
     return savedFiles ? JSON.parse(savedFiles) : [{ name: "untitled.py", content: "" }];
@@ -43,22 +42,21 @@ export default function App() {
   const [inputValue, setInputValue] = useState("");
   const [inputPrompt, setInputPrompt] = useState("");
   const [isWaitingForInput, setIsWaitingForInput] = useState(false);
+  const [isBrythonReady, setIsBrythonReady] = useState(false);
 
   useEffect(() => {
-    async function loadPyodideInstance() {
-      const pyodideInstance = await window.loadPyodide();
-      await pyodideInstance.loadPackage("micropip");
-      pyodideInstance.runPython(`
-        import js
-        def custom_input(prompt):
-            future = js.outputPrompt(prompt)
-            return future
-        __builtins__.input = custom_input
-      `);
-      window.pyodide = pyodideInstance;
-      setPyodide(pyodideInstance);
-    }
-    loadPyodideInstance();
+    // Verificar si Brython está cargado
+    const checkBrython = () => {
+      if (typeof window.__BRYTHON__ === "undefined") {
+        console.error("Brython no está cargado. Asegúrate de incluir los scripts en index.html.");
+        setOutput("Error: Brython no está cargado. Revisa la consola.");
+      } else {
+        window.__BRYTHON__.debug = 1; // Habilitar modo debug
+        setIsBrythonReady(true);
+      }
+    };
+
+    checkBrython();
   }, []);
 
   useEffect(() => {
@@ -116,49 +114,61 @@ export default function App() {
     setIsModified(true);
   };
 
-  const handleRunCode = async () => {
-    if (!pyodide) {
-      setOutput("Pyodide is not loaded yet. Please wait.");
-      setTerminalOpen(true);
+  const handleRunCode = () => {
+    if (!isBrythonReady) {
+      setOutput("Brython no está listo. Por favor, recarga la página.");
       return;
     }
 
     setTerminalOpen(true);
     setOutput("Running...\n");
-    setIsWaitingForInput(false);
 
     try {
-      pyodide.runPython(`
-        import sys
-        from io import StringIO
-        sys.stdout = StringIO()
-      `);
+      // Configurar salida
+      window.outputCallback = (text) => {
+        setOutput((prev) => prev + text);
+      };
 
-      window.outputPrompt = (prompt) => {
+      // Configurar input
+      window.inputCallback = (prompt) => {
+        setInputPrompt(prompt);
+        setIsWaitingForInput(true);
         return new Promise((resolve) => {
-          setInputPrompt(prompt);
-          setIsWaitingForInput(true);
-          window.resolveInput = resolve; // Store the resolve function
+          window.resolveInput = resolve;
         });
       };
 
-      await pyodide.runPythonAsync(code);
-      const result = pyodide.runPython("sys.stdout.getvalue()");
-      setOutput((prev) => prev + (result || "No output.") + "\n");
+      // Código Python con redirección de entrada/salida
+      const brythonCode = `
+import sys
+def write_output(text):
+    window.outputCallback(text + "\\n")
+sys.stdout.write = write_output
+sys.stderr.write = write_output
+def get_input(prompt):
+    return window.inputCallback(prompt)
+input = get_input
+${code}
+`;
+      // Ejecutar código usando un script dinámico con retraso
+      setTimeout(() => {
+        const script = document.createElement("script");
+        script.type = "text/python";
+        script.text = brythonCode;
+        document.body.appendChild(script);
+      }, 0);
+
     } catch (error) {
-      setOutput((prev) => prev + `Error: ${error.message}\n`);
+      setOutput((prev) => prev + `Error: ${error.message || 'Desconocido'}\n`);
+      console.error("Error detallado:", error);
     }
   };
 
   const handleInputSubmit = (e) => {
     if (isWaitingForInput && window.resolveInput) {
       e.preventDefault();
-      if (inputValue) {
-        setOutput((prev) => prev + `${inputPrompt}${inputValue}\n`);
-        window.resolveInput(inputValue); // Resolve the promise with the input value
-      } else {
-        window.resolveInput(""); // Resolve with empty string if no input
-      }
+      setOutput((prev) => prev + `${inputPrompt}${inputValue}\n`);
+      window.resolveInput(inputValue);
       setInputValue("");
       setIsWaitingForInput(false);
     }
